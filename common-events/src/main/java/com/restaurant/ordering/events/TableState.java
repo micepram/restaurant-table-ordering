@@ -1,4 +1,4 @@
-package com.pramika.rto.events;
+package com.restaurant.ordering.events;
 
 /** Lifecycle of a physical table, independent of any single order. */
 public enum TableState {

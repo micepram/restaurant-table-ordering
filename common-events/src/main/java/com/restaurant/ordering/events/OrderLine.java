@@ -1,4 +1,4 @@
-package com.pramika.rto.events;
+package com.restaurant.ordering.events;
 
 import java.util.List;
 

@@ -1,4 +1,4 @@
-package com.pramika.rto.security;
+package com.restaurant.ordering.security;
 
 import java.time.Instant;
 import java.util.HashMap;

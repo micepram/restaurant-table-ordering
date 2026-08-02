@@ -1,4 +1,4 @@
-package com.pramika.rto.security;
+package com.restaurant.ordering.security;
 
 import javax.crypto.SecretKey;
 
@@ -22,8 +22,8 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
  *
  * <p>Registered as an auto-configuration rather than relying on component scanning,
  * because the services' {@code @SpringBootApplication} classes live in sibling packages
- * ({@code com.pramika.rto.menu}, {@code ...order}, …) and would not otherwise scan
- * {@code com.pramika.rto.security}.
+ * ({@code com.restaurant.ordering.menu}, {@code ...order}, …) and would not otherwise scan
+ * {@code com.restaurant.ordering.security}.
  *
  * <p>A symmetric HS256 key shared by all services is the right trade-off for a
  * single-operator venue: no key distribution, no JWKS endpoint, and any service can

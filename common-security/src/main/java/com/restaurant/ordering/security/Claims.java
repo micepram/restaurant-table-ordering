@@ -1,4 +1,4 @@
-package com.pramika.rto.security;
+package com.restaurant.ordering.security;
 
 /** Custom JWT claim names shared by the issuer and every verifier. */
 public final class Claims {

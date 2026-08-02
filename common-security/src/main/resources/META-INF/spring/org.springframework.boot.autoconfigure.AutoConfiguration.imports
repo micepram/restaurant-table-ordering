@@ -1,1 +1,1 @@
-com.pramika.rto.security.JwtAutoConfiguration
+com.restaurant.ordering.security.JwtAutoConfiguration

@@ -1,4 +1,4 @@
-package com.pramika.rto.security;
+package com.restaurant.ordering.security;
 
 /**
  * The four principals in the system.
