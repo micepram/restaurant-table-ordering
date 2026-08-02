@@ -1,0 +1,55 @@
+spring:
+  application:
+    name: menu-service
+  config:
+    import: classpath:rto-kafka-defaults.yml
+
+  datasource:
+    url: ${RTO_POSTGRES_URL:jdbc:postgresql://localhost:5433/rto}
+    username: ${RTO_POSTGRES_USER:rto}
+    password: ${RTO_POSTGRES_PASSWORD:rto}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: menu
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    schemas: menu
+    default-schema: menu
+
+  data:
+    redis:
+      host: ${RTO_REDIS_HOST:localhost}
+      port: ${RTO_REDIS_PORT:6380}
+
+  cache:
+    type: redis
+
+  kafka:
+    bootstrap-servers: ${RTO_KAFKA_BOOTSTRAP:localhost:9094}
+    consumer:
+      # menu-service owns menu state, so its consumption must be load-balanced across
+      # instances rather than broadcast: exactly one instance should apply each
+      # availability change. A stable group id is what makes that happen.
+      group-id: menu-service
+
+server:
+  port: 8081
+
+rto:
+  jwt:
+    secret: ${RTO_JWT_SECRET:rto-local-development-secret-key-do-not-use-in-production}
+    issuer: rto
+  menu:
+    # Long enough that the cache absorbs a dinner rush, short enough that a missed
+    # invalidation self-heals rather than serving a stale menu all evening.
+    cache-ttl: 10m
+
+logging:
+  level:
+    com.restaurant.ordering: DEBUG
