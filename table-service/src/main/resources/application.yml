@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: table-service
+  config:
+    import: classpath:rto-kafka-defaults.yml
+
+  datasource:
+    url: ${RTO_POSTGRES_URL:jdbc:postgresql://localhost:5433/rto}
+    username: ${RTO_POSTGRES_USER:rto}
+    password: ${RTO_POSTGRES_PASSWORD:rto}
+
+  jpa:
+    hibernate:
+      # Flyway owns the schema. ddl-auto stays off so a mapping change can never
+      # silently alter a table that a migration is responsible for.
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: tables
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    schemas: tables
+    default-schema: tables
+
+  kafka:
+    bootstrap-servers: ${RTO_KAFKA_BOOTSTRAP:localhost:9094}
+
+server:
+  port: 8084
+
+rto:
+  jwt:
+    secret: ${RTO_JWT_SECRET:rto-local-development-secret-key-do-not-use-in-production}
+    issuer: rto
+    customer-ttl: 4h
+    staff-ttl: 12h
+
+logging:
+  level:
+    com.restaurant.ordering: DEBUG
