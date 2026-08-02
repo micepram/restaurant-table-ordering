@@ -28,9 +28,10 @@ export PATH="$JAVA_HOME/bin:$PATH"
 # real deployment; hard-coded here so the demo starts with no setup.
 export RTO_JWT_SECRET="${RTO_JWT_SECRET:-rto-local-development-secret-key-do-not-use-in-production}"
 
-export RTO_KAFKA_BOOTSTRAP="${RTO_KAFKA_BOOTSTRAP:-localhost:9092}"
-export RTO_POSTGRES_URL="${RTO_POSTGRES_URL:-jdbc:postgresql://localhost:5432/rto}"
+export RTO_KAFKA_BOOTSTRAP="${RTO_KAFKA_BOOTSTRAP:-localhost:9094}"
+export RTO_POSTGRES_URL="${RTO_POSTGRES_URL:-jdbc:postgresql://localhost:5433/rto}"
 export RTO_REDIS_HOST="${RTO_REDIS_HOST:-localhost}"
+export RTO_REDIS_PORT="${RTO_REDIS_PORT:-6380}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export REPO_ROOT
