@@ -11,7 +11,7 @@
     <relativePath/>
   </parent>
 
-  <groupId>com.pramika.rto</groupId>
+  <groupId>com.restaurant.ordering</groupId>
   <artifactId>restaurant-table-ordering</artifactId>
   <version>0.1.0-SNAPSHOT</version>
   <packaging>pom</packaging>
@@ -36,6 +36,8 @@
   <modules>
     <module>common-events</module>
     <module>common-security</module>
+    <module>common-kafka</module>
+    <module>table-service</module>
   </modules>
 
   <dependencyManagement>
@@ -48,13 +50,18 @@
         <scope>import</scope>
       </dependency>
       <dependency>
-        <groupId>com.pramika.rto</groupId>
+        <groupId>com.restaurant.ordering</groupId>
         <artifactId>common-events</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>com.pramika.rto</groupId>
+        <groupId>com.restaurant.ordering</groupId>
         <artifactId>common-security</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.restaurant.ordering</groupId>
+        <artifactId>common-kafka</artifactId>
         <version>${project.version}</version>
       </dependency>
     </dependencies>

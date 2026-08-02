@@ -1,3 +1,8 @@
+# Host ports are deliberately shifted off the defaults (5433/6380/9094 rather than
+# 5432/6379/9092). This machine already runs a native Postgres bound to 127.0.0.1:5432,
+# and a container publishing the same port loses to that loopback-specific bind: clients
+# silently reach the other server and fail with "role rto does not exist". Moving all
+# three keeps the set consistent and leaves any native services untouched.
 name: rto
 
 services:
@@ -5,7 +10,7 @@ services:
     image: apache/kafka:4.1.2
     container_name: rto-kafka
     ports:
-      - "9092:9092"
+      - "9094:9092"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -15,7 +20,11 @@ services:
       # container-to-container. Advertising only one of these is the usual cause
       # of "connected, then immediately disconnected" Kafka clients.
       KAFKA_LISTENERS: HOST://0.0.0.0:9092,INTERNAL://0.0.0.0:19092,CONTROLLER://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: HOST://localhost:9092,INTERNAL://kafka:19092
+      # The HOST listener must advertise the *published* port (9094), not the port it
+      # binds inside the container (9092). Clients bootstrap on 9094, then reconnect to
+      # whatever address comes back in the metadata response — advertise 9092 here and
+      # every client connects once and then fails on the redirect.
+      KAFKA_ADVERTISED_LISTENERS: HOST://localhost:9094,INTERNAL://kafka:19092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: HOST:PLAINTEXT,INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
@@ -26,7 +35,9 @@ services:
       KAFKA_NUM_PARTITIONS: 3
       CLUSTER_ID: rto-local-cluster-0001
     healthcheck:
-      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      # Probes the INTERNAL listener, not HOST: the HOST listener advertises
+      # localhost:9094, which resolves to nothing inside the container.
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server kafka:19092 >/dev/null 2>&1"]
       interval: 10s
       timeout: 10s
       retries: 12
@@ -38,7 +49,7 @@ services:
     image: postgres:18-trixie
     container_name: rto-postgres
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_USER: rto
       POSTGRES_PASSWORD: rto
@@ -49,7 +60,11 @@ services:
       timeout: 5s
       retries: 12
     volumes:
-      - pg-data:/var/lib/postgresql/data
+      # Postgres 18 moved the recommended mount up one level: mounting
+      # /var/lib/postgresql/data directly makes the entrypoint refuse to start
+      # ("PostgreSQL data in ... unused mount/volume"). The data lands in a
+      # version-named subdirectory of this mount instead.
+      - pg-data:/var/lib/postgresql
       # Creates one schema per service. Flyway owns the tables inside each.
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/10-init-db.sql:ro
 
@@ -57,7 +72,7 @@ services:
     image: redis:8-alpine
     container_name: rto-redis
     ports:
-      - "6379:6379"
+      - "6380:6379"
     command: ["redis-server", "--appendonly", "no", "--save", ""]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]

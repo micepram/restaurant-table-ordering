@@ -1,0 +1,2 @@
+com.restaurant.ordering.kafka.RtoKafkaAutoConfiguration
+com.restaurant.ordering.kafka.TopicDefinitions

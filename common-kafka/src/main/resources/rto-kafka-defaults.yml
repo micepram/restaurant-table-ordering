@@ -1,0 +1,40 @@
+# Serialization defaults shared by every service.
+#
+# Imported rather than hard-coded in Java so Spring Boot's own Kafka auto-configuration
+# stays in charge of building the factories. Services pull it in with:
+#
+#   spring:
+#     config:
+#       import: classpath:rto-kafka-defaults.yml
+#
+# and then only declare their own bootstrap-servers and consumer group.
+#
+# Jackson 3 note: spring-kafka 4.x ships two parallel JSON serializer families.
+# JsonSerializer/JsonDeserializer are the legacy Jackson 2 (com.fasterxml) pair and build
+# their own mapper, which has no java.time support unless jackson-datatype-jsr310 happens
+# to be on the classpath — under Boot 4 it is not, so every event carrying an Instant dies
+# with "Java 8 date/time type not supported". JacksonJsonSerializer/JacksonJsonDeserializer
+# are the Jackson 3 (tools.jackson) pair, where java.time is built in. Use those.
+spring:
+  kafka:
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+      acks: all
+      properties:
+        # Retries plus idempotence: a redelivered send cannot produce a duplicate record,
+        # so consumers do not have to dedupe on top of their own idempotency handling.
+        enable.idempotence: true
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      # ErrorHandlingDeserializer wraps the JSON one so a single malformed record becomes
+      # a logged failure for that record instead of an infinite redelivery loop that
+      # stalls the whole partition.
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      auto-offset-reset: earliest
+      properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+        # Events are published with a __TypeId__ header carrying the fully-qualified class
+        # name. Every service shares common-events, so the names resolve identically and a
+        # topic can carry several event types with @KafkaHandler dispatching on each.
+        spring.json.trusted.packages: com.restaurant.ordering.events
