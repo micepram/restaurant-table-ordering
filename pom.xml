@@ -39,6 +39,7 @@
     <module>common-kafka</module>
     <module>table-service</module>
     <module>menu-service</module>
+    <module>order-service</module>
   </modules>
 
   <dependencyManagement>
