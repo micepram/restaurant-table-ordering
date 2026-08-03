@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: kitchen-service
+  config:
+    import: classpath:rto-kafka-defaults.yml
+
+  datasource:
+    url: ${RTO_POSTGRES_URL:jdbc:postgresql://localhost:5433/rto}
+    username: ${RTO_POSTGRES_USER:rto}
+    password: ${RTO_POSTGRES_PASSWORD:rto}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: kitchen
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    schemas: kitchen
+    default-schema: kitchen
+
+  kafka:
+    bootstrap-servers: ${RTO_KAFKA_BOOTSTRAP:localhost:9094}
+
+server:
+  port: 8083
+
+rto:
+  jwt:
+    secret: ${RTO_JWT_SECRET:rto-local-development-secret-key-do-not-use-in-production}
+    issuer: rto
+  kitchen:
+    # Unique per instance, so EVERY instance receives every order event and can push to
+    # the browsers it holds. WebSocket sessions live in one instance's memory, so a stable
+    # group id would deliver each event to a single instance and leave the boards attached
+    # to the others silently stale -- invisible in single-instance dev, worst under
+    # scale-out. See KitchenBoardConsumer for why the projection shares this listener
+    # rather than running under a separate stable group.
+    ws-group: kitchen-ws-${random.uuid}
+    # Wait-time thresholds for the board's colour coding, shared with the UI so the
+    # server and the display agree on what "late" means.
+    warn-after: 5m
+    late-after: 10m
+  cors:
+    allowed-origins: ${RTO_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,http://localhost:5175}
+
+logging:
+  level:
+    com.restaurant.ordering: DEBUG
