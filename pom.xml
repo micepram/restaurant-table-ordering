@@ -41,6 +41,7 @@
     <module>menu-service</module>
     <module>order-service</module>
     <module>kitchen-service</module>
+    <module>payment-service</module>
   </modules>
 
   <dependencyManagement>
