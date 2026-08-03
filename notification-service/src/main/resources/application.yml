@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: notification-service
+  config:
+    import: classpath:rto-kafka-defaults.yml
+
+  kafka:
+    bootstrap-servers: ${RTO_KAFKA_BOOTSTRAP:localhost:9094}
+
+server:
+  port: 8086
+
+rto:
+  jwt:
+    secret: ${RTO_JWT_SECRET:rto-local-development-secret-key-do-not-use-in-production}
+    issuer: rto
+  notifications:
+    # Unique per instance. WebSocket sessions live in the memory of the instance the
+    # browser connected to, so every instance must see every event to push to its own
+    # clients. A stable group id would hand each event to exactly one instance and leave
+    # every other connected phone silently stale -- which looks fine on one instance and
+    # breaks the moment you scale out.
+    #
+    # Offsets are meaningless for these disposable groups: a client that reconnects wants
+    # current state, not the backlog. auto-offset-reset stays at the shared default of
+    # earliest, and the brief replay on startup is harmless because every push is a
+    # complete snapshot rather than a delta.
+    group: notifications-${random.uuid}
+  cors:
+    allowed-origins: ${RTO_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,http://localhost:5175}
+
+logging:
+  level:
+    com.restaurant.ordering: DEBUG
