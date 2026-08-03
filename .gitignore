@@ -38,3 +38,6 @@ Thumbs.db
 logs/
 *.log
 /scripts/.pids
+
+# Frontend build output
+frontend/**/dist/
