@@ -1,6 +1,6 @@
 spring:
   application:
-    name: table-service
+    name: order-service
   config:
     import: classpath:rto-kafka-defaults.yml
 
@@ -11,21 +11,23 @@ spring:
 
   jpa:
     hibernate:
-      # Flyway owns the schema. ddl-auto stays off so a mapping change can never
-      # silently alter a table that a migration is responsible for.
       ddl-auto: validate
     properties:
       hibernate:
-        default_schema: tables
+        default_schema: orders
     open-in-view: false
 
   flyway:
     enabled: true
-    schemas: tables
-    default-schema: tables
+    schemas: orders
+    default-schema: orders
 
   kafka:
     bootstrap-servers: ${RTO_KAFKA_BOOTSTRAP:localhost:9094}
+    consumer:
+      # Stable group id: order-service owns the order aggregate, so exactly one instance
+      # must apply each kitchen intent or payment. Broadcasting would apply it twice.
+      group-id: order-service
 
 server:
   # Surfaces the exception message in error responses. Validation failures here are
@@ -33,14 +35,14 @@ server:
   # Cooked to"), and the default response body omits the message entirely.
   error:
     include-message: always
-  port: 8084
+  port: 8082
 
 rto:
   jwt:
     secret: ${RTO_JWT_SECRET:rto-local-development-secret-key-do-not-use-in-production}
     issuer: rto
-    customer-ttl: 4h
-    staff-ttl: 12h
+  menu-service:
+    base-url: ${RTO_MENU_SERVICE_URL:http://localhost:8081}
 
 logging:
   level:

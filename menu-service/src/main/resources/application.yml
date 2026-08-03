@@ -39,6 +39,11 @@ spring:
       group-id: menu-service
 
 server:
+  # Surfaces the exception message in error responses. Validation failures here are
+  # meant for the customer's screen ("Ribeye Steak requires at least 1 choice from
+  # Cooked to"), and the default response body omits the message entirely.
+  error:
+    include-message: always
   port: 8081
 
 rto:
