@@ -1,0 +1,28 @@
+{
+  "name": "rto-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:customer": "npm run dev --workspace @rto/customer",
+    "dev:kitchen": "npm run dev --workspace @rto/kitchen",
+    "dev:staff": "npm run dev --workspace @rto/staff",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.0.5",
+    "typescript": "^5.9.0",
+    "vite": "^8.2.0",
+    "vitest": "^4.1.10"
+  }
+}
