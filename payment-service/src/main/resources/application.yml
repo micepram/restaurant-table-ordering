@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: payment-service
+  config:
+    import: classpath:rto-kafka-defaults.yml
+
+  datasource:
+    url: ${RTO_POSTGRES_URL:jdbc:postgresql://localhost:5433/rto}
+    username: ${RTO_POSTGRES_USER:rto}
+    password: ${RTO_POSTGRES_PASSWORD:rto}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: payment
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    schemas: payment
+    default-schema: payment
+
+  kafka:
+    bootstrap-servers: ${RTO_KAFKA_BOOTSTRAP:localhost:9094}
+    consumer:
+      group-id: payment-service
+
+server:
+  port: 8085
+
+rto:
+  jwt:
+    secret: ${RTO_JWT_SECRET:rto-local-development-secret-key-do-not-use-in-production}
+    issuer: rto
+  order-service:
+    base-url: ${RTO_ORDER_SERVICE_URL:http://localhost:8082}
+  payment:
+    # Mock processor. Deterministic rather than random so a demo or a test can force a
+    # decline on purpose: any card ending 0000 is declined, 0001 times out, everything
+    # else is approved.
+    simulated-latency: 400ms
+
+logging:
+  level:
+    com.restaurant.ordering: DEBUG
