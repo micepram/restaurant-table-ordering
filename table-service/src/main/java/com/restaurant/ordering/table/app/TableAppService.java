@@ -109,6 +109,34 @@ public class TableAppService {
         return TableView.of(table);
     }
 
+    /**
+     * A table with an order on it is ORDERING.
+     *
+     * <p>Applied only from SEATED or FREE. A redelivered {@code OrderPlaced} for a table
+     * that has since settled must not pull it backwards — Kafka is at-least-once, and a
+     * state that flickers backwards misleads staff worse than one that lags.
+     */
+    @Transactional
+    public void advanceStateOnOrder(Long tableId) {
+        tables.findById(tableId).ifPresent(table -> {
+            if (table.getState() == TableState.FREE || table.getState() == TableState.SEATED) {
+                table.setState(TableState.ORDERING);
+                publishAfterCommit(table, null);
+            }
+        });
+    }
+
+    /** A settled bill moves the table to SETTLED; a waiter clears it back to FREE. */
+    @Transactional
+    public void advanceStateOnSettlement(Long tableId) {
+        tables.findById(tableId).ifPresent(table -> {
+            if (table.getState() != TableState.SETTLED && table.getState() != TableState.FREE) {
+                table.setState(TableState.SETTLED);
+                publishAfterCommit(table, null);
+            }
+        });
+    }
+
     private void closeOpenSession(Long tableId) {
         sessions.findByTableIdAndEndedAtIsNull(tableId).ifPresent(TableSession::close);
     }
