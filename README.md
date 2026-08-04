@@ -10,11 +10,23 @@ Six Spring Boot services behind a gateway, Kafka between them, and three React f
 
 ## Running it
 
-Needs a JDK 21+, Node 20+, and Docker.
+| | | |
+|---|---|---|
+| **JDK 25** | required, not just recommended | the build sets `maven.compiler.release=25`, so an older JDK fails with `release version 25 not supported` |
+| **Node 20.19+** or **22.12+** | | Vite 8's floor; Node 20.10 will not start the dev server |
+| **Docker** | | Kafka, Postgres and Redis run in containers |
 
 ```bash
 ./scripts/dev.sh start          # infra containers, then every service
 cd frontend && npm install && npm run dev
+```
+
+`dev.sh` sources `scripts/env.sh`, which finds a suitable JDK and pins `JAVA_HOME` for you.
+If you run Maven yourself, pin it too — Homebrew's Maven bundles its own JDK and uses it
+regardless of what `java` resolves to on `PATH`:
+
+```bash
+export JAVA_HOME=$(/usr/libexec/java_home -v 25)
 ```
 
 Then open:
@@ -80,6 +92,38 @@ WebSockets. The service ports are for debugging.
 Each service owns a Postgres schema (`menu`, `orders`, `kitchen`, `tables`, `payment`) and
 never reads another's. notification-service has no database at all — it only turns events
 into pushes.
+
+### Where things live
+
+```
+├── common-events/          Kafka contracts: topics, event records, OrderStatus
+├── common-security/        shared JWT issuing and decoding, no web stack
+├── common-kafka/           EventPublisher, serializer defaults, topic definitions
+│
+├── gateway/                routes, CORS, edge JWT check, staff login
+├── menu-service/           menu, modifiers, availability, Redis-cached read model
+├── order-service/          order aggregate — the only writer of order status
+├── kitchen-service/        Kafka fan-in, ticket board, /ws/kitchen
+├── table-service/          tables, QR mapping, customer session tokens
+├── payment-service/        bill splitting, tips, mock card processing
+├── notification-service/   Kafka → /ws/customer, no database
+│
+├── frontend/
+│   ├── packages/shared/    types, API client, session storage, useStomp
+│   └── apps/{customer,kitchen,staff}/
+│
+└── scripts/                dev.sh, demo.sh, env.sh, init-db.sql
+```
+
+The three `common-*` modules are plain libraries, not Boot apps. `common-security` is
+deliberately free of servlet and reactive types, because the WebFlux gateway and the six
+servlet services both depend on it.
+
+The five services that own data — menu, order, kitchen, table, payment — share one internal
+shape: `domain/` for entities and the rules that belong to them, `app/` for transactional
+services and Kafka consumers, `api/` for controllers and DTOs, `config/` for security and
+wiring. The gateway and notification-service are flatter, because neither has a domain of
+its own to model: one routes, the other translates events into pushes.
 
 ### Topics
 
