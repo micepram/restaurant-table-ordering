@@ -35,8 +35,21 @@ public class ServiceRoutes {
                 .route("payments", r -> r.path("/api/payments/**").uri(services.payment()))
                 // The two WebSocket endpoints. Kept behind the gateway so all three
                 // frontends have exactly one origin to configure and CORS is set once.
-                .route("kitchen-ws", r -> r.path("/ws/kitchen/**").uri(services.kitchen()))
-                .route("customer-ws", r -> r.path("/ws/customer/**").uri(services.notification()))
+                //
+                // Sec-WebSocket-Extensions is stripped from the handshake on the way in. The
+                // browser offers permessage-deflate; Tomcat downstream accepts it and starts
+                // setting RSV1 on compressed frames, but the gateway does not relay the
+                // matching response header back, so the browser never learns compression was
+                // agreed and kills the socket on the first such frame ("One or more reserved
+                // bits are on"). Removing the offer keeps both ends uncompressed and in
+                // agreement. These are a handful of small JSON frames; there is nothing to
+                // gain from compressing them anyway.
+                .route("kitchen-ws", r -> r.path("/ws/kitchen/**")
+                        .filters(f -> f.removeRequestHeader("Sec-WebSocket-Extensions"))
+                        .uri(services.kitchen()))
+                .route("customer-ws", r -> r.path("/ws/customer/**")
+                        .filters(f -> f.removeRequestHeader("Sec-WebSocket-Extensions"))
+                        .uri(services.notification()))
                 .build();
     }
 

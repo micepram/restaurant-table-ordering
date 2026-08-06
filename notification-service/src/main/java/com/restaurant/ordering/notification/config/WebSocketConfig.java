@@ -119,10 +119,17 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     /**
      * Decides whether this session may read the requested destination.
      *
-     * <p>Staff see everything. A customer is confined to their own table's stream; the menu
-     * topic is open to any authenticated session because it carries no table-specific data.
-     * Order destinations are left to the HTTP layer — the id alone is not a capability, and
-     * order-service already refuses to serve another table's order.
+     * <p>Staff see everything. A customer may read exactly two things: the menu topic, which
+     * carries no table-specific data, and its own table's stream.
+     *
+     * <p>The list is a whitelist rather than a blacklist, and that is the point. It used to
+     * refuse only {@code /topic/tables/<someone else>} and allow anything that did not match
+     * that prefix, which left {@code /topic/orders/<id>} open to every customer session —
+     * and that destination receives the same ORDER_STATUS and PAYMENT pushes, outstanding
+     * balance included. {@code GET /api/orders/9} correctly answers 403 to a diner at
+     * another table, but the broker never consults order-service before pushing, so the HTTP
+     * check does not cover the socket. Order ids are sequential, so guessing them is not
+     * work. No client subscribes to a per-order destination; none of them ever needed to.
      */
     private void authorise(StompHeaderAccessor accessor) {
         Object stored = accessor.getSessionAttributes() == null
@@ -141,15 +148,16 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         if (!Roles.CUSTOMER.equals(role)) {
             return;
         }
-        if (Destinations.MENU.equals(destination) || !destination.startsWith(TABLE_PREFIX)) {
+        if (Destinations.MENU.equals(destination)) {
             return;
         }
 
         Object claim = jwt.getClaim(Claims.TABLE_ID);
         Long ownTableId = claim instanceof Number number ? number.longValue() : null;
-        String requested = destination.substring(TABLE_PREFIX.length());
 
-        if (ownTableId == null || !requested.equals(String.valueOf(ownTableId))) {
+        if (ownTableId == null
+                || !destination.startsWith(TABLE_PREFIX)
+                || !destination.substring(TABLE_PREFIX.length()).equals(String.valueOf(ownTableId))) {
             log.warn("Rejected SUBSCRIBE to {} from a session scoped to table {}", destination, ownTableId);
             throw new IllegalArgumentException("Not permitted to subscribe to " + destination);
         }
