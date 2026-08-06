@@ -8,6 +8,92 @@ Six Spring Boot services behind a gateway, Kafka between them, and three React f
 
 ---
 
+## What it looks like
+
+One pass through the running stack — the same order seen from the table, the pass and the
+floor. Nothing below is a mockup: every shot was taken against the services running locally,
+and the screens that update do so from a push, not a reload.
+
+### At the table
+
+<table>
+<tr>
+<td width="25%"><img src="docs/screenshots/01-customer-menu.png" alt="The menu, grouped by category"></td>
+<td width="25%"><img src="docs/screenshots/02-customer-item-sheet.png" alt="Choosing how the steak is cooked"></td>
+<td width="25%"><img src="docs/screenshots/03-customer-cart.png" alt="The cart, expanded"></td>
+<td width="25%"><img src="docs/screenshots/04-customer-order-placed.png" alt="The order tracker after placing"></td>
+</tr>
+<tr>
+<td>The QR code opens the table directly. No app, no account, no sign-in.</td>
+<td><b>Cooked to</b> is a required group, so <b>Add</b> stays disabled until it is answered.</td>
+<td>A summary bar until it is tapped, so the menu keeps the screen.</td>
+<td>Placing the order switches to the tracker.</td>
+</tr>
+</table>
+
+### On the pass
+
+![The kitchen board](docs/screenshots/06-kitchen-board.png)
+
+Colour is never the only signal — border weight, background and the elapsed clock carry the
+same information. The clock is re-derived locally every second rather than waiting for a
+push, so a ticket at 4:59 turns amber on its own and keeps counting even if the socket drops.
+T-01 has been waiting fifteen minutes here; T-08's ticket has just landed.
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/05-kitchen-login.png" alt="The kitchen sign-in screen"></td>
+<td width="50%"><img src="docs/screenshots/08-kitchen-86-panel.png" alt="The 86 panel"></td>
+</tr>
+<tr>
+<td>Sign-in is shared with the staff app; the role decides which screens open. Every endpoint re-checks it server-side regardless.</td>
+<td>Marking an item off publishes to menu-service rather than writing anything locally — that single path is what makes the next screen work.</td>
+</tr>
+</table>
+
+### The two flows, actually happening
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/07-customer-order-live.png" alt="The tracker showing Being cooked"></td>
+<td width="50%"><img src="docs/screenshots/09-customer-sold-out.png" alt="The salmon greyed out on the menu"></td>
+</tr>
+<tr>
+<td>The cook tapped <b>Start cooking</b> on the board a second earlier. This phone was never reloaded: the tap published an intent, order-service published the fact, and the tracker moved.</td>
+<td>The salmon was 86'd on the pass. It greys out in place rather than vanishing, so a diner who was reading it sees where it went instead of watching the list reflow.</td>
+</tr>
+</table>
+
+### Settling up
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/10-customer-bill.png" alt="An 18% tip split three ways"></td>
+<td width="50%"><img src="docs/screenshots/11-customer-bill-partial.png" alt="One share paid, the tip now locked"></td>
+</tr>
+<tr>
+<td>The server computes the split, so the client never divides money and the shares always add back up to the bill.</td>
+<td>Once one share is paid the tip chips lock — changing it now would silently re-price a share that has already settled.</td>
+</tr>
+</table>
+
+### Front of house
+
+![The staff dashboard](docs/screenshots/12-staff-dashboard.png)
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/13-staff-table-detail.png" alt="A table expanded to show its orders"></td>
+<td width="50%"><img src="docs/screenshots/14-staff-flagged.png" alt="A table flagged for attention"></td>
+</tr>
+<tr>
+<td>Expanding a table shows its orders and what is still outstanding on the bill.</td>
+<td>Flagging raises the table in the banner at the top of the board.</td>
+</tr>
+</table>
+
+---
+
 ## Running it
 
 | | | |
@@ -201,6 +287,16 @@ frame. The kitchen board authenticates; the customer stream also **authorises ea
 `/topic/tables/4` is refused. Authenticating without that second check would let any valid
 table session read every other table's orders and payments.
 
+That check is a **whitelist** — the menu topic, plus the session's own table, and nothing
+else. It was originally written the other way round, refusing another table's
+`/topic/tables/<id>` and permitting anything that did not match that prefix. Which left
+`/topic/orders/<id>` open to every customer session, and that destination receives the same
+`ORDER_STATUS` and `PAYMENT` pushes, outstanding balance included. `GET /api/orders/9`
+answers 403 to a diner at another table, but the broker never consults order-service before
+pushing, so the HTTP check does not cover the socket — and order ids are sequential, so
+guessing one is not work. A blacklist has to anticipate every destination that will ever
+exist; a whitelist only has to name the two that are wanted.
+
 **Real-time consumers use a per-instance Kafka group.** WebSocket sessions live in the
 memory of whichever instance the browser reached, so every instance must see every event. A
 stable group id delivers each event to one instance and leaves boards and phones attached to
@@ -262,6 +358,25 @@ Four Boot 4 details that cost real debugging time:
 - **Spring Security also guards the `ERROR` dispatch.** Without permitting it, a handler
   exception is re-dispatched to `/error` and returns 401 — which makes any internal failure
   look like an authentication problem.
+
+Two more that only appear in a browser, both about the gateway sitting in the middle. Neither
+shows up in `curl`, `mvn test` or `demo.sh` — all three talk to the gateway without an
+`Origin` header and without a WebSocket:
+
+- **CORS belongs in exactly one place.** The gateway sets it at the edge, but kitchen-service
+  and notification-service each configured it again for themselves, so every proxied response
+  carried `Access-Control-Allow-Origin` twice. A browser rejects that outright — *"contains
+  multiple values `http://localhost:5174, http://localhost:5174`, but only one is allowed"* —
+  and the kitchen board could not load a single request. Two identical values are still two
+  values. The four services that never configured CORS were always fine.
+- **Spring Cloud Gateway does not relay `Sec-WebSocket-Extensions`.** The browser offers
+  `permessage-deflate` on the handshake; the gateway passes the offer downstream, Tomcat
+  accepts it and starts setting `RSV1` on compressed frames, but the acceptance header never
+  makes it back to the browser. So the browser, which believes nothing was negotiated, sees a
+  reserved bit set and kills the socket: *"One or more reserved bits are on"*. The handshake
+  succeeds and the status pill even reads **Live**, which is what makes it confusing — it
+  dies on the first frame large enough to compress. The gateway now strips the offer on the
+  way in, so both ends agree on no compression.
 
 `scripts/env.sh` pins `JAVA_HOME`, because Homebrew's Maven uses its own bundled JDK
 regardless of what `java` resolves to on `PATH`.
