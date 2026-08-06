@@ -10,8 +10,8 @@ Six Spring Boot services behind a gateway, Kafka between them, and three React f
 
 ## What it looks like
 
-One pass through the running stack — the same order seen from the table, the pass and the
-floor. Nothing below is a mockup: every shot was taken against the services running locally,
+One pass through the running stack, showing the same order from the table, the pass and the
+floor. Nothing below is a mockup. Every shot was taken against the services running locally,
 and the screens that update do so from a push, not a reload.
 
 ### At the table
@@ -35,7 +35,7 @@ and the screens that update do so from a push, not a reload.
 
 ![The kitchen board](docs/screenshots/06-kitchen-board.png)
 
-Colour is never the only signal — border weight, background and the elapsed clock carry the
+Colour is never the only signal. Border weight, background and the elapsed clock carry the
 same information. The clock is re-derived locally every second rather than waiting for a
 push, so a ticket at 4:59 turns amber on its own and keeps counting even if the socket drops.
 T-01 has been waiting fifteen minutes here; T-08's ticket has just landed.
@@ -47,7 +47,7 @@ T-01 has been waiting fifteen minutes here; T-08's ticket has just landed.
 </tr>
 <tr>
 <td>Sign-in is shared with the staff app; the role decides which screens open. Every endpoint re-checks it server-side regardless.</td>
-<td>Marking an item off publishes to menu-service rather than writing anything locally — that single path is what makes the next screen work.</td>
+<td>Marking an item off publishes to menu-service rather than writing anything locally, and that single path is what makes the next screen work.</td>
 </tr>
 </table>
 
@@ -73,7 +73,7 @@ T-01 has been waiting fifteen minutes here; T-08's ticket has just landed.
 </tr>
 <tr>
 <td>The server computes the split, so the client never divides money and the shares always add back up to the bill.</td>
-<td>Once one share is paid the tip chips lock — changing it now would silently re-price a share that has already settled.</td>
+<td>Once one share is paid the tip chips lock. Changing it now would silently re-price a share that has already settled.</td>
 </tr>
 </table>
 
@@ -108,8 +108,8 @@ cd frontend && npm install && npm run dev
 ```
 
 `dev.sh` sources `scripts/env.sh`, which finds a suitable JDK and pins `JAVA_HOME` for you.
-If you run Maven yourself, pin it too — Homebrew's Maven bundles its own JDK and uses it
-regardless of what `java` resolves to on `PATH`:
+If you run Maven yourself, pin it too, because Homebrew's Maven bundles its own JDK and uses
+it regardless of what `java` resolves to on `PATH`:
 
 ```bash
 export JAVA_HOME=$(/usr/libexec/java_home -v 25)
@@ -136,7 +136,7 @@ is the username followed by `-pw`.
 
 ### Ports
 
-Infrastructure is deliberately off the default ports — this machine already had a native
+Infrastructure is deliberately off the default ports. This machine already had a native
 Postgres on 5432, and a container publishing the same port loses to the loopback bind,
 producing a confusing `role "rto" does not exist` while `psql` inside the container works
 fine.
@@ -176,7 +176,7 @@ WebSockets. The service ports are for debugging.
 ```
 
 Each service owns a Postgres schema (`menu`, `orders`, `kitchen`, `tables`, `payment`) and
-never reads another's. notification-service has no database at all — it only turns events
+never reads another's. notification-service has no database at all. It only turns events
 into pushes.
 
 ### Where things live
@@ -188,7 +188,7 @@ into pushes.
 │
 ├── gateway/                routes, CORS, edge JWT check, staff login
 ├── menu-service/           menu, modifiers, availability, Redis-cached read model
-├── order-service/          order aggregate — the only writer of order status
+├── order-service/          order aggregate, the only writer of order status
 ├── kitchen-service/        Kafka fan-in, ticket board, /ws/kitchen
 ├── table-service/          tables, QR mapping, customer session tokens
 ├── payment-service/        bill splitting, tips, mock card processing
@@ -205,7 +205,7 @@ The three `common-*` modules are plain libraries, not Boot apps. `common-securit
 deliberately free of servlet and reactive types, because the WebFlux gateway and the six
 servlet services both depend on it.
 
-The five services that own data — menu, order, kitchen, table, payment — share one internal
+The five services that own data (menu, order, kitchen, table, payment) share one internal
 shape: `domain/` for entities and the rules that belong to them, `app/` for transactional
 services and Kafka consumers, `api/` for controllers and DTOs, `config/` for security and
 wiring. The gateway and notification-service are flatter, because neither has a domain of
@@ -246,7 +246,7 @@ cook taps "start"
 
 Without this, two kitchen terminals double-tapping the same ticket produce two conflicting
 writes and no authority to reconcile them. `advance()` returns a boolean rather than
-throwing, so a redelivered Kafka intent is dropped instead of retried forever — Kafka is
+throwing, so a redelivered Kafka intent is dropped instead of retried forever. Kafka is
 at-least-once, so duplicates are normal, not exceptional.
 
 ### "We just ran out of salmon"
@@ -265,10 +265,10 @@ kitchen board taps 86
 Two details carry this:
 
 **Eviction happens after the transaction commits, not via `@CacheEvict`.** The annotation
-fires when the method returns but before the commit, leaving a window where a concurrent
-reader repopulates the cache from the old row and the new value commits behind it — a stale
-menu that survives until the TTL, with no error anywhere. A 10-minute TTL is the backstop,
-not the mechanism.
+fires when the method returns but before the commit, opening a window where a concurrent
+reader repopulates the cache from the old row and the new value commits behind it. What
+survives is a stale menu that lasts until the TTL, with no error anywhere. A 10-minute TTL
+is the backstop, not the mechanism.
 
 **Redis is shared, so one eviction covers the fleet.** A local cache would need its own
 invalidation broadcast to do the same job.
@@ -283,24 +283,24 @@ while the item sold out is rejected rather than accepted against a stale menu.
 **Two WebSocket paths, both authenticated on the STOMP frame.** Browser WebSocket APIs
 cannot set an `Authorization` header on the handshake, so the token travels in the `CONNECT`
 frame. The kitchen board authenticates; the customer stream also **authorises each
-`SUBSCRIBE`** — the table id is part of the destination, so a diner at table 3 asking for
+`SUBSCRIBE`**. The table id is part of the destination, so a diner at table 3 asking for
 `/topic/tables/4` is refused. Authenticating without that second check would let any valid
 table session read every other table's orders and payments.
 
-That check is a **whitelist** — the menu topic, plus the session's own table, and nothing
-else. It was originally written the other way round, refusing another table's
+That check is a **whitelist** covering the menu topic and the session's own table, and
+nothing else. It was originally written the other way round, refusing another table's
 `/topic/tables/<id>` and permitting anything that did not match that prefix. Which left
 `/topic/orders/<id>` open to every customer session, and that destination receives the same
 `ORDER_STATUS` and `PAYMENT` pushes, outstanding balance included. `GET /api/orders/9`
 answers 403 to a diner at another table, but the broker never consults order-service before
-pushing, so the HTTP check does not cover the socket — and order ids are sequential, so
-guessing one is not work. A blacklist has to anticipate every destination that will ever
-exist; a whitelist only has to name the two that are wanted.
+pushing, so the HTTP check does not cover the socket. Order ids are sequential, so guessing
+one is not work. A blacklist has to anticipate every destination that will ever exist; a
+whitelist only has to name the two that are wanted.
 
 **Real-time consumers use a per-instance Kafka group.** WebSocket sessions live in the
 memory of whichever instance the browser reached, so every instance must see every event. A
 stable group id delivers each event to one instance and leaves boards and phones attached to
-the others silently stale — invisible on one instance, worst under scale-out.
+the others silently stale, which is invisible on one instance and worst under scale-out.
 
 **Money is integer cents everywhere.** £80.50 split three ways has no exact representation,
 and rounding each share independently produces shares that do not add up to the bill. The
@@ -317,7 +317,7 @@ self-invocation would bypass the proxy.
 
 **The kitchen board re-derives wait times locally each second.** A ticket at 4:59 would
 otherwise stay green until an unrelated push arrived, and the clock would freeze entirely
-while the socket was down. Colour is never the only signal — border weight, background and
+while the socket was down. Colour is never the only signal. Border weight, background and
 the elapsed clock carry it too.
 
 ---
@@ -331,16 +331,16 @@ cd frontend && npx vitest run         # 22 frontend tests
 ```
 
 The unit tests concentrate on the two places a silent error would be expensive: the order
-state machine (every legal transition, and the illegal ones enumerated individually —
-skipping ahead, going backwards, reviving a cancelled order, self-transitions from duplicate
-events) and the money arithmetic (shares always sum back to the original, no two shares
-differ by more than a cent, tips round half-up).
+state machine (every legal transition, and the illegal ones enumerated individually: skipping
+ahead, going backwards, reviving a cancelled order, self-transitions from duplicate events)
+and the money arithmetic (shares always sum back to the original, no two shares differ by
+more than a cent, tips round half-up).
 
 ---
 
 ## Toolchain
 
-Spring Boot **4.0.7** with Spring Cloud **2025.1.2** — these are coupled, the Cloud BOM
+Spring Boot **4.0.7** with Spring Cloud **2025.1.2**. These are coupled, and the Cloud BOM
 declares `spring-boot.version=4.0.7`. Java 25, React 19, Vite 8.
 
 Four Boot 4 details that cost real debugging time:
@@ -356,27 +356,27 @@ Four Boot 4 details that cost real debugging time:
 - **The gateway starter was renamed** to `spring-cloud-starter-gateway-server-webflux`; the
   old artifact stopped at 4.3.5.
 - **Spring Security also guards the `ERROR` dispatch.** Without permitting it, a handler
-  exception is re-dispatched to `/error` and returns 401 — which makes any internal failure
+  exception is re-dispatched to `/error` and returns 401, which makes any internal failure
   look like an authentication problem.
 
 Two more that only appear in a browser, both about the gateway sitting in the middle. Neither
-shows up in `curl`, `mvn test` or `demo.sh` — all three talk to the gateway without an
+shows up in `curl`, `mvn test` or `demo.sh`, because all three talk to the gateway without an
 `Origin` header and without a WebSocket:
 
 - **CORS belongs in exactly one place.** The gateway sets it at the edge, but kitchen-service
   and notification-service each configured it again for themselves, so every proxied response
-  carried `Access-Control-Allow-Origin` twice. A browser rejects that outright — *"contains
-  multiple values `http://localhost:5174, http://localhost:5174`, but only one is allowed"* —
-  and the kitchen board could not load a single request. Two identical values are still two
-  values. The four services that never configured CORS were always fine.
+  carried `Access-Control-Allow-Origin` twice. A browser rejects that outright, reporting
+  *"contains multiple values `http://localhost:5174, http://localhost:5174`, but only one is
+  allowed"*, and the kitchen board could not load a single request. Two identical values are
+  still two values. The four services that never configured CORS were always fine.
 - **Spring Cloud Gateway does not relay `Sec-WebSocket-Extensions`.** The browser offers
   `permessage-deflate` on the handshake; the gateway passes the offer downstream, Tomcat
   accepts it and starts setting `RSV1` on compressed frames, but the acceptance header never
   makes it back to the browser. So the browser, which believes nothing was negotiated, sees a
   reserved bit set and kills the socket: *"One or more reserved bits are on"*. The handshake
-  succeeds and the status pill even reads **Live**, which is what makes it confusing — it
-  dies on the first frame large enough to compress. The gateway now strips the offer on the
-  way in, so both ends agree on no compression.
+  succeeds and the status pill even reads **Live**, which is what makes it confusing. It dies
+  on the first frame large enough to compress. The gateway now strips the offer on the way
+  in, so both ends agree on no compression.
 
 `scripts/env.sh` pins `JAVA_HOME`, because Homebrew's Maven uses its own bundled JDK
 regardless of what `java` resolves to on `PATH`.
